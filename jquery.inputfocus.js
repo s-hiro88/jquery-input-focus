@@ -13,28 +13,25 @@
 (function ($) {
 	"use strict";
 
-	var KEY_TAB = 9,
-		KEY_ENTER = 13,
-		KEY_LEFT = 37,
-		KEY_UP = 38,
-		KEY_RIGHT = 39,
-		KEY_DOWN = 40;
+	var KEY_TAB = "Tab",
+		KEY_ENTER = "Enter",
+		KEY_LEFT = "ArrowLeft",
+		KEY_UP = "ArrowUp",
+		KEY_RIGHT = "ArrowRight",
+		KEY_DOWN = "ArrowDown";
 
-	// http://d.hatena.ne.jp/tubureteru/20110101/p1
 	function getCaretPos(item) {
 		var caretPos = 0;
-		if (document.selection) { // IE
-			item.focus();
-			var Sel = document.selection.createRange();
-			Sel.moveStart("character", -item.value.length);
-			caretPos = Sel.text.length;
-		} else if (item.selectionStart || item.selectionStart === 0) { // Firefox, Chrome
+		if (item.selectionStart || item.selectionStart === 0) {
 			caretPos = item.selectionStart;
 		}
 		return caretPos;
 	}
 
 	function isFocusable($input) {
+		if ($input.hasClass("focusable")) {
+			return $input.is(":visible");
+		}
 		return $input.is(":visible") &&
 			$input.is(":enabled") &&
 			$input.css("visibility") !== "hidden" &&
@@ -80,15 +77,16 @@
 	function focus($target) {
 		// 移動先でkeydownが起こらないようにsetTimeoutする。Firefoxのみの問題
 		setTimeout(function () {
+			var target = $target[0];
 			$target.focus();
-			if ($target.select && !$target.is(":button")) {
-				$target.select();
+			if (target && typeof target.select === "function" && !$target.is(":button")) {
+				target.select();
 			}
 		}, 0);
 	}
 
 	function focusFirst($parent) {
-		var $first = findNextFocusByIndex($(":input", $parent), false, true, -1);
+		var $first = findNextFocusByIndex($(":input,.focusable", $parent), false, true, -1);
 		if ($first) {
 			focus($first);
 		}
@@ -104,11 +102,11 @@
 			"focusFirst": false,
 			"loop": true
 		};
-		var setting = $.extend(defaults, options);
+		var setting = $.extend({}, defaults, options);
 
 		$elements.on("keydown", function (event) {
-			var $inputs = $(":input", $elements),
-				keyCode = event.keyCode,
+			var $inputs = $(":input,.focusable", $elements),
+				keyCode = event.key,
 				shiftKey = event.shiftKey,
 				target = event.target,
 				type = target.type,
@@ -123,6 +121,9 @@
 					if ($inputs[i] === target) {
 						break;
 					}
+				}
+				if (i >= ln) {
+					return null;
 				}
 				return findNextFocusByIndex($inputs, reverse, setting.loop, i);
 			}
@@ -154,26 +155,20 @@
 
 				// 現フォーカス要素がフォーカス移動に対応するか
 				function isMoveFocusField() {
-					if (!$(target).is(":input")) {
-						return false;
-					}
 					if (type === "file") {
 						return false;
 					}
 					if (type === "textarea" && keyCode !== KEY_TAB) {
 						return false;
 					}
-					if ((type === "select-one" || type === "select-multiple") &&
-							isKeyUpDown()) {
+					if ((type === "select-one" || type === "select-multiple") && isKeyUpDown()) {
 						return false;
 					}
-					if (type === "text" || type === "password") {
-						if (keyCode === KEY_LEFT &&
-								getCaretPos(target) !== 0) {
+					if ($(target).is("input:not([type=file]):not([type=checkbox]):not([type=radio])")) {
+						if (keyCode === KEY_LEFT && getCaretPos(target) !== 0) {
 							return false;
 						}
-						if (keyCode === KEY_RIGHT &&
-								getCaretPos(target) !== $(target).val().length) {
+						if (keyCode === KEY_RIGHT && getCaretPos(target) !== $(target).val().length) {
 							return false;
 						}
 					}
@@ -190,23 +185,6 @@
 			if (!$next) {
 				return true;
 			}
-
-			//IEのみ問題回避
-			if (navigator.userAgent.match(/MSIE/i)) {
-				//次フォーカスがtext以外だと選択範囲の青色が残るため解除
-				if (type === "text" || type === "password") {
-					var deselectTextForIE = function () {
-						var range = target.createTextRange();
-						range.moveStart("character", $(target).val().length);
-						range.select();
-					};
-					deselectTextForIE();
-				}
-
-				//IE規定の動作キャンセル(beep音)
-				window.event.keyCode = 0;
-			}
-
 			focus($next);
 			//イベントを伝播しない
 			return false;
