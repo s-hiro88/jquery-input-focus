@@ -78,7 +78,7 @@
 		// 移動先でkeydownが起こらないようにsetTimeoutする。Firefoxのみの問題
 		setTimeout(function () {
 			var target = $target[0];
-			$target.trigger("focus");
+			$target.focus();
 			if (target && typeof target.select === "function" && !$target.is(":button")) {
 				target.select();
 			}
