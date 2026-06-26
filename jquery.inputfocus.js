@@ -20,6 +20,9 @@
 		KEY_RIGHT = "ArrowRight",
 		KEY_DOWN = "ArrowDown";
 
+	var TEXT_INPUT_SELECTOR =
+	    "input:text,input:password,input:search,input:url,input:email,input:number,textarea";
+
 	function getCaretPos(item) {
 		var caretPos = 0;
 		if (item.selectionStart || item.selectionStart === 0) {
@@ -35,8 +38,8 @@
 		return $input.is(":visible") &&
 			$input.is(":enabled") &&
 			$input.css("visibility") !== "hidden" &&
-			$input.attr("type") != "hidden" && // for IE bug ?
-			$input.attr("tabindex") !== "-1" &&
+			$input.attr("type") !== "hidden" &&
+			$input.prop("tabIndex") >= 0 &&
 			!$input.prop("readonly");
 	}
 
@@ -79,7 +82,11 @@
 		setTimeout(function () {
 			var target = $target[0];
 			$target.focus();
-			if (target && typeof target.select === "function" && !$target.is(":button")) {
+			if (
+				target &&
+				typeof target.select === "function" &&
+				$target.is(TEXT_INPUT_SELECTOR)
+			) {
 				target.select();
 			}
 		}, 0);
@@ -115,14 +122,8 @@
 			// 次のフォーカス可能要素を探す
 			function findNextFocusOnKeydown() {
 				var reverse = shiftKey || keyCode === KEY_LEFT || keyCode === KEY_UP;
-				var ln = $inputs.length;
-				var i;
-				for (i = 0; i < ln; i++) {
-					if ($inputs[i] === target) {
-						break;
-					}
-				}
-				if (i >= ln) {
+				var i = $inputs.index(target);
+				if (i < 0) {
 					return null;
 				}
 				return findNextFocusByIndex($inputs, reverse, setting.loop, i);
