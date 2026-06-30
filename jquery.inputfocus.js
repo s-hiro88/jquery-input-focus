@@ -1,5 +1,5 @@
 /*
- * jquery.inputfocus.js - jQuery plugin.
+ * jquery.inputfocus.js - Native JavaScript focus navigation helper.
  *
  * Modified by froop http://github.com/froop/jquery-input-focus
  * Created by Hidepyon http://d.hatena.ne.jp/Hidepyon/
@@ -9,8 +9,8 @@
  * Copyright (c) 2012-2014 froop
  * The MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
-/*global jQuery, window */
-(function ($) {
+/*global window */
+(function (window) {
 	"use strict";
 
 	var KEY_TAB = "Tab",
@@ -21,7 +21,8 @@
 		KEY_DOWN = "ArrowDown";
 
 	var TEXT_INPUT_SELECTOR =
-	    "input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea";
+		"input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea";
+	var FOCUSABLE_SELECTOR = "input,select,textarea,button,.focusable";
 
 	function getCaretPos(item) {
 		var caretPos = 0;
@@ -31,20 +32,37 @@
 		return caretPos;
 	}
 
-	function isFocusable($input) {
-		if ($input.hasClass("focusable")) {
-			return $input.is(":visible");
-		}
-		return $input.is(":visible") &&
-			$input.is(":enabled") &&
-			$input.css("visibility") !== "hidden" &&
-			$input.attr("type") !== "hidden" &&
-			$input.prop("tabIndex") >= 0 &&
-			!$input.prop("readonly");
+	function matches(element, selector) {
+		return element &&
+			typeof element.matches === "function" &&
+			element.matches(selector);
 	}
 
-	function findNextFocusByIndex($inputs, reverse, loop, baseIdx) {
-		var ln = $inputs.length,
+	function isVisible(element) {
+		var style;
+
+		if (!element) {
+			return false;
+		}
+		style = window.getComputedStyle(element);
+		return style.display !== "none" &&
+			style.visibility !== "hidden" &&
+			element.getClientRects().length > 0;
+	}
+
+	function isFocusable(input) {
+		if (input.classList.contains("focusable")) {
+			return isVisible(input);
+		}
+		return isVisible(input) &&
+			!input.disabled &&
+			input.type !== "hidden" &&
+			input.tabIndex >= 0 &&
+			!input.readOnly;
+	}
+
+	function findNextFocusByIndex(inputs, reverse, loop, baseIdx) {
+		var ln = inputs.length,
 			j, guard;
 
 		if (ln === 0) {
@@ -66,41 +84,64 @@
 		j = toNextIndex(baseIdx);
 		guard = j;
 		do {
-			var $input = $($inputs[j]);
-			if (isFocusable($input)) {
-				//対象のオブジェクトを戻す
-				return $input;
+			var input = inputs[j];
+			if (isFocusable(input)) {
+				// 対象のオブジェクトを戻す
+				return input;
 			}
 			j = toNextIndex(j);
 		} while (j !== guard);
-		//対象オブジェクトなし
+		// 対象オブジェクトなし
 		return null;
 	}
 
-	function focus($target) {
+	function focus(target) {
 		// 移動先でkeydownが起こらないようにsetTimeoutする。Firefoxのみの問題
-		setTimeout(function () {
-			var target = $target[0];
-			$target.focus();
+		window.setTimeout(function () {
+			if (!target) {
+				return;
+			}
+			target.focus();
 			if (
-				target &&
 				typeof target.select === "function" &&
-				$target.is(TEXT_INPUT_SELECTOR)
+				matches(target, TEXT_INPUT_SELECTOR)
 			) {
 				target.select();
 			}
 		}, 0);
 	}
 
-	function focusFirst($parent) {
-		var $first = findNextFocusByIndex($(":input,.focusable", $parent), false, true, -1);
-		if ($first) {
-			focus($first);
+	function toElementArray(elements) {
+		if (!elements) {
+			return [];
+		}
+		if (typeof elements === "string") {
+			return Array.prototype.slice.call(document.querySelectorAll(elements));
+		}
+		if (elements.nodeType === 1 || elements === window || elements === document) {
+			return [elements];
+		}
+		return Array.prototype.slice.call(elements);
+	}
+
+	function getInputs(parents) {
+		return parents.reduce(function (inputs, parent) {
+			return inputs.concat(
+				Array.prototype.slice.call(parent.querySelectorAll(FOCUSABLE_SELECTOR))
+			);
+		}, []);
+	}
+
+	function focusFirst(elements) {
+		var parents = toElementArray(elements);
+		var first = findNextFocusByIndex(getInputs(parents), false, true, -1);
+		if (first) {
+			focus(first);
 		}
 	}
 
-	$.fn.inputFocus = function (options) {
-		var $elements = this;
+	function inputFocus(elements, options) {
+		var parents = toElementArray(elements);
 		var defaults = {
 			"enter": false,
 			"tab": false,
@@ -109,98 +150,98 @@
 			"focusFirst": false,
 			"loop": true
 		};
-		var setting = $.extend({}, defaults, options);
+		var setting = Object.assign({}, defaults, options);
 
-		$elements.on("keydown", function (event) {
-			var $inputs = $(":input,.focusable", $elements),
-				keyCode = event.key,
-				shiftKey = event.shiftKey,
-				target = event.target,
-				type = target.type,
-				$next = null;
+		parents.forEach(function (parent) {
+			parent.addEventListener("keydown", function (event) {
+				var inputs = getInputs(parents),
+					keyCode = event.key,
+					shiftKey = event.shiftKey,
+					target = event.target,
+					type = target.type,
+					next = null;
 
-			// 次のフォーカス可能要素を探す
-			function findNextFocusOnKeydown() {
-				var reverse = shiftKey || keyCode === KEY_LEFT || keyCode === KEY_UP;
-				var i = $inputs.index(target);
-				if (i < 0) {
-					return null;
-				}
-				return findNextFocusByIndex($inputs, reverse, setting.loop, i);
-			}
-
-			function isMoveFocus() {
-				function isKeyUpDown() {
-					return keyCode === KEY_UP || keyCode === KEY_DOWN;
+				// 次のフォーカス可能要素を探す
+				function findNextFocusOnKeydown() {
+					var reverse = shiftKey || keyCode === KEY_LEFT || keyCode === KEY_UP;
+					var i = inputs.indexOf(target);
+					if (i < 0) {
+						return null;
+					}
+					return findNextFocusByIndex(inputs, reverse, setting.loop, i);
 				}
 
-				function isKeyLeftRight() {
-					return keyCode === KEY_LEFT || keyCode === KEY_RIGHT;
-				}
+				function isMoveFocus() {
+					function isKeyUpDown() {
+						return keyCode === KEY_UP || keyCode === KEY_DOWN;
+					}
 
-				function isMoveFocusKey() {
-					if (setting.enter && keyCode === KEY_ENTER) {
-						return true;
+					function isKeyLeftRight() {
+						return keyCode === KEY_LEFT || keyCode === KEY_RIGHT;
 					}
-					if (setting.tab && keyCode === KEY_TAB) {
-						return true;
-					}
-					if (setting.upDown && isKeyUpDown()) {
-						return true;
-					}
-					if (setting.leftRight && isKeyLeftRight()) {
-						return true;
-					}
-					return false;
-				}
 
-				// 現フォーカス要素がフォーカス移動に対応するか
-				function isMoveFocusField() {
-					if (type === "file") {
+					function isMoveFocusKey() {
+						if (setting.enter && keyCode === KEY_ENTER) {
+							return true;
+						}
+						if (setting.tab && keyCode === KEY_TAB) {
+							return true;
+						}
+						if (setting.upDown && isKeyUpDown()) {
+							return true;
+						}
+						if (setting.leftRight && isKeyLeftRight()) {
+							return true;
+						}
 						return false;
 					}
-					if (type === "textarea" && keyCode !== KEY_TAB) {
-						return false;
-					}
-					if ((type === "select-one" || type === "select-multiple") && isKeyUpDown()) {
-						return false;
-					}
-					if ($(target).is("input:not([type=file]):not([type=checkbox]):not([type=radio])")) {
-						if (keyCode === KEY_LEFT && getCaretPos(target) !== 0) {
+
+					// 現フォーカス要素がフォーカス移動に対応するか
+					function isMoveFocusField() {
+						if (type === "file") {
 							return false;
 						}
-						if (keyCode === KEY_RIGHT && getCaretPos(target) !== $(target).val().length) {
+						if (type === "textarea" && keyCode !== KEY_TAB) {
 							return false;
 						}
+						if ((type === "select-one" || type === "select-multiple") && isKeyUpDown()) {
+							return false;
+						}
+						if (matches(target, "input:not([type=file]):not([type=checkbox]):not([type=radio])")) {
+							if (keyCode === KEY_LEFT && getCaretPos(target) !== 0) {
+								return false;
+							}
+							if (keyCode === KEY_RIGHT && getCaretPos(target) !== target.value.length) {
+								return false;
+							}
+						}
+						return true;
 					}
-					return true;
+
+					return isMoveFocusKey() && isMoveFocusField();
 				}
 
-				return isMoveFocusKey() && isMoveFocusField();
-			}
-
-			if (isMoveFocus()) {
-				//次のフォームオブジェクト探す
-				$next = findNextFocusOnKeydown();
-			}
-			if (!$next) {
-				return true;
-			}
-			focus($next);
-			//イベントを伝播しない
-			return false;
+				if (isMoveFocus()) {
+					// 次のフォームオブジェクト探す
+					next = findNextFocusOnKeydown();
+				}
+				if (!next) {
+					return;
+				}
+				focus(next);
+				// イベントを伝播しない
+				event.preventDefault();
+				event.stopPropagation();
+			});
 		});
 
 		if (setting.focusFirst) {
-			focusFirst($elements);
+			focusFirst(parents);
 		}
 
-		return this;
-	};
+		return elements;
+	}
 
-	$.fn.inputFocusFirst = function () {
-		var $elements = this;
-		focusFirst($elements);
-		return this;
-	};
-})(jQuery);
+	window.inputFocus = inputFocus;
+	window.inputFocusFirst = focusFirst;
+})(window);
