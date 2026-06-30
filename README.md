@@ -1,4 +1,4 @@
-jquery-input-focus - jQuery plugin
+jquery-input-focus - Native JavaScript
 ====================
 
 入力可能なform系要素 (inputやselectなど) 間のフォーカス移動を制御する。
@@ -13,7 +13,17 @@ http://d.hatena.ne.jp/Hidepyon/20090903/1251988911
 
 inputFocus
 --------------------
-入力フォーカスの移動方法を登録する。パラメーターで渡すオプションは以下の通り。
+入力フォーカスの移動方法を登録する。第1引数には要素、セレクター文字列、NodeList、配列を渡せる。第2引数のオプションは以下の通り。
+
+```javascript
+inputFocus(document.querySelector("#form1"), {
+	enter: true,
+	tab: true,
+	upDown: true,
+	leftRight: true,
+	focusFirst: true
+});
+```
 
 #### enter
 `true` の場合、Enter キーでフォーカスを次の項目へ移動する。
@@ -43,4 +53,8 @@ Shift キーと同時押しの場合は前の項目へ移動する。
 
 inputFocusFirst
 --------------------
-先頭項目に入力フォーカスを設定する。
+先頭項目に入力フォーカスを設定する。第1引数には要素、セレクター文字列、NodeList、配列を渡せる。
+
+```javascript
+inputFocusFirst(document.querySelector("#form1"));
+```

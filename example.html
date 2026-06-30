@@ -2,7 +2,7 @@
 <html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-	<title>jquery.inputfocus.js example</title>
+	<title>inputfocus.js example</title>
 	<style>
 		/* for Firefox */
 		input[type="radio"]:focus,
@@ -46,32 +46,30 @@
 
 	<form id="empty-form"></form>
 
-  <script type="text/javascript" src="https://code.jquery.com/jquery-4.0.0.min.js"></script>
 	<script type="text/javascript" src="jquery.inputfocus.js"></script>
 	<script type="text/javascript">
-		$("#form1").inputFocus({
-			enter : true,
-			tab : true,
-			upDown : true,
-			leftRight : true,
-			focusFirst : true
+		var form1 = document.querySelector("#form1");
+		var singleInputForm = document.querySelector("#single-input-form");
+
+		inputFocus(form1, {
+			enter: true,
+			tab: true,
+			upDown: true,
+			leftRight: true,
+			focusFirst: true
 		});
 
-		$("#single-input-form").inputFocus({
-			enter : true
-		}).css({
-			backgroundColor : "lightgray"
+		inputFocus(singleInputForm, {
+			enter: true
+		});
+		singleInputForm.style.backgroundColor = "lightgray";
+
+		document.querySelector("#focus-link").addEventListener("click", function () {
+			inputFocusFirst(singleInputForm);
+			singleInputForm.style.backgroundColor = "yellow";
 		});
 
-		$("#focus-link").on("click", function () {
-			$('#single-input-form')
-				.inputFocusFirst()
-				.css({
-					backgroundColor: "yellow"
-				});
-		});
-
-		$("#empty-form").inputFocusFirst();
+		inputFocusFirst(document.querySelector("#empty-form"));
 	</script>
 </body>
 </html>
